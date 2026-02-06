@@ -87,19 +87,31 @@
 
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <!-- User Identification -->
-                <div class="d-flex justify-content-end align-items-center mb-3 pt-2">
-                    <div class="input-group user-identification">
-                        <span class="input-group-text" id="userNameAddon"><i class="bi bi-person-fill"></i></span>
-                        <input type="text" class="form-control form-control-sm" id="currentUser" placeholder="Enter your name" aria-label="Username" aria-describedby="userNameAddon">
+                <!-- Top Bar -->
+                <div class="dashboard-topbar mb-4">
+                    <div>
+                        <p class="text-muted mb-1">Welcome back</p>
+                        <h1 class="page-title mb-0">Admin Dashboard</h1>
+                    </div>
+                    <div class="topbar-actions">
+                        <button type="button" class="btn btn-light btn-sm me-2" id="exportDashboardBtn">
+                            <i class="bi bi-download me-1"></i> Export
+                        </button>
+                        <div class="input-group user-identification">
+                            <span class="input-group-text" id="userNameAddon"><i class="bi bi-person-fill"></i></span>
+                            <input type="text" class="form-control form-control-sm" id="currentUser" placeholder="Enter your name" aria-label="Username" aria-describedby="userNameAddon">
+                        </div>
                     </div>
                 </div>
                 
                 <div class="tab-content">
                     <!-- Dashboard Tab -->
                     <div class="tab-pane fade show active" id="dashboard">
-                        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                            <h1 class="h2">Dashboard Overview</h1>
+                        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3">
+                            <div>
+                                <h2 class="section-title">Dashboard Overview</h2>
+                                <p class="text-muted mb-0">Track visitor trends and active sessions in real time.</p>
+                            </div>
                             <div class="btn-toolbar mb-2 mb-md-0">
                                 <div class="btn-group me-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary">Today</button>
@@ -112,8 +124,11 @@
                         <!-- Stats Cards -->
                         <div class="row mb-4">
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-primary">
+                                <div class="card stat-card stat-card-primary">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-people"></i>
+                                        </div>
                                         <h5 class="card-title">Total Visitors</h5>
                                         <h2 class="card-text" id="totalVisitors">0</h2>
                                         <p class="card-text"><small>+0% from yesterday</small></p>
@@ -121,8 +136,11 @@
                                 </div>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-success">
+                                <div class="card stat-card stat-card-success">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-activity"></i>
+                                        </div>
                                         <h5 class="card-title">Active Now</h5>
                                         <h2 class="card-text" id="activeVisitors">0</h2>
                                         <p class="card-text"><small>Online now</small></p>
@@ -130,8 +148,11 @@
                                 </div>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-warning">
+                                <div class="card stat-card stat-card-warning">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-eye"></i>
+                                        </div>
                                         <h5 class="card-title">Page Views</h5>
                                         <h2 class="card-text" id="pageViews">0</h2>
                                         <p class="card-text"><small>+0% from yesterday</small></p>
@@ -139,8 +160,11 @@
                                 </div>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-info">
+                                <div class="card stat-card stat-card-info">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-clock-history"></i>
+                                        </div>
                                         <h5 class="card-title">Avg. Session</h5>
                                         <h2 class="card-text" id="avgSession">0m</h2>
                                         <p class="card-text"><small>+0% from yesterday</small></p>
@@ -164,6 +188,7 @@
                                                 <th>Page</th>
                                                 <th>Location</th>
                                                 <th>Device</th>
+                                                <th>Session</th>
                                             </tr>
                                         </thead>
                                         <tbody id="recentActivityBody">
@@ -181,7 +206,7 @@
                             <h1 class="h2">Visitor Management</h1>
                             <div class="btn-toolbar mb-2 mb-md-0">
                                 <div class="btn-group me-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="exportVisitorsBtn">Export</button>
                                 </div>
                             </div>
                         </div>
@@ -193,6 +218,7 @@
                                         <thead>
                                             <tr>
                                                 <th>ID</th>
+                                                <th>Visitor</th>
                                                 <th>First Visit</th>
                                                 <th>Last Seen</th>
                                                 <th>Page Views</th>
@@ -219,32 +245,44 @@
                         <!-- Stats Cards -->
                         <div class="row mb-4">
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-primary">
+                                <div class="card stat-card stat-card-primary">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-people"></i>
+                                        </div>
                                         <h6 class="card-title">Total Visitors</h6>
                                         <h2 id="analyticsTotalVisitors" class="card-text">0</h2>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-success">
+                                <div class="card stat-card stat-card-success">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-activity"></i>
+                                        </div>
                                         <h6 class="card-title">Active Now</h6>
                                         <h2 id="analyticsActiveVisitors" class="card-text">0</h2>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-info">
+                                <div class="card stat-card stat-card-info">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-eye"></i>
+                                        </div>
                                         <h6 class="card-title">Page Views</h6>
                                         <h2 id="analyticsPageViews" class="card-text">0</h2>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-3 mb-3">
-                                <div class="card text-white bg-warning">
+                                <div class="card stat-card stat-card-warning">
                                     <div class="card-body">
+                                        <div class="stat-icon">
+                                            <i class="bi bi-clock-history"></i>
+                                        </div>
                                         <h6 class="card-title">Avg. Session</h6>
                                         <h2 id="analyticsAvgSession" class="card-text">0m</h2>
                                     </div>
@@ -320,79 +358,10 @@
                             </div>
                         </div>
                         
-                        <style>
-                            @media (max-width: 767.98px) {
-                                .chart-container {
-                                    height: 200px !important;
-                                }
-                                .card-body {
-                                    padding: 0.75rem !important;
-                                }
-                            }
-                            
-                            @media (max-width: 575.98px) {
-                                .chart-container {
-                                    height: 180px !important;
-                                }
-                            }
-                        </style>
-                        
-                        <div class="row mb-4">
-                            <div class="col-md-8">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0">Visitors Overview</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="visitorChart" height="300"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0">Traffic Sources</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="trafficChart" height="300"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0">Top Pages</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="table-responsive">
-                                            <table class="table table-sm">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Page</th>
-                                                        <th>Visitors</th>
-                                                        <th>% New</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="topPagesBody">
-                                                    <!-- Will be populated by JavaScript -->
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0">Device Distribution</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="deviceChart" height="200"></canvas>
-                                    </div>
-                                </div>
+                        <div class="analytics-footer mt-4">
+                            <div class="alert alert-info d-flex align-items-center mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <span>Charts update automatically every minute based on the latest visitor activity.</span>
                             </div>
                         </div>
                     </div>
