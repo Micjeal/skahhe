@@ -1,7 +1,6 @@
 // Global variables
 let visitorsData = [];
 let activityData = [];
-let clientIp = 'Unknown';
 
 // Show alert message
 function showAlert(message, type = 'info') {
@@ -84,16 +83,33 @@ function trackNavigation(page) {
         }
     }
     
+    const userEmailInput = document.getElementById('currentUserEmail');
+    let currentEmail = '';
+
+    if (userEmailInput && userEmailInput.value.trim() !== '') {
+        currentEmail = userEmailInput.value.trim();
+        localStorage.setItem('trackingUserEmail', currentEmail);
+    } else {
+        const savedEmail = localStorage.getItem('trackingUserEmail');
+        if (savedEmail) {
+            currentEmail = savedEmail;
+            if (userEmailInput) {
+                userEmailInput.value = currentEmail;
+            }
+        }
+    }
+
     const visit = {
         page: page,
         timestamp: new Date().toISOString(),
         userName: currentUser,
+        userEmail: currentEmail,
         userAgent: navigator.userAgent,
         screenWidth: window.screen.width,
         screenHeight: window.screen.height
     };
     
-    const visitor = updateVisitorList(currentUser, page);
+    const visitor = updateVisitorList(currentUser, currentEmail, page);
 
     // Add to activity data
     activityData.push({
@@ -102,9 +118,9 @@ function trackNavigation(page) {
         time: visit.timestamp,
         device: getDeviceType(),
         userName: currentUser,
+        userEmail: currentEmail,
         visitorId: visitor?.id,
-        location: visitor?.location,
-        ip: clientIp
+        location: visitor?.location
     });
     
     // Update the UI
@@ -115,7 +131,7 @@ function trackNavigation(page) {
 }
 
 // Update the visitor list with the current user
-function updateVisitorList(userName, page) {
+function updateVisitorList(userName, userEmail, page) {
     const now = new Date();
     const timeString = now.toLocaleTimeString();
     
@@ -131,7 +147,7 @@ function updateVisitorList(userName, page) {
         visitor.lastPage = page;
         visitor.name = visitor.name || userName;
         visitor.status = 'online';
-        visitor.ip = visitor.ip || clientIp;
+        visitor.email = visitor.email || userEmail;
     } else {
         // Add new visitor
         visitor = {
@@ -139,7 +155,7 @@ function updateVisitorList(userName, page) {
             name: userName,
             device: getDeviceType(),
             location: 'Unknown', // Could be enhanced with geolocation
-            ip: clientIp,
+            email: userEmail,
             firstVisit: now.toISOString(),
             lastVisit: now.toISOString(),
             pageViews: 1,
@@ -254,20 +270,6 @@ async function checkServerHealth() {
     }
 }
 
-async function fetchClientIp() {
-    try {
-        const response = await fetch('/api/client-ip');
-        if (!response.ok) {
-            throw new Error('Failed to fetch IP');
-        }
-        const data = await response.json();
-        clientIp = data.ip || 'Unknown';
-    } catch (error) {
-        console.error('Unable to fetch client IP:', error);
-        clientIp = 'Unknown';
-    }
-}
-
 // Initialize the dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', async function() {
     // Check server health first
@@ -298,13 +300,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     loadVisitorData();
     initializeEventListeners();
 
-    await fetchClientIp();
-    
     // Initialize user name from localStorage if available
     const savedName = localStorage.getItem('trackingUserName');
     const userInput = document.getElementById('currentUser');
+    const userEmailInput = document.getElementById('currentUserEmail');
     if (savedName && userInput) {
         userInput.value = savedName;
+    }
+    const savedEmail = localStorage.getItem('trackingUserEmail');
+    if (savedEmail && userEmailInput) {
+        userEmailInput.value = savedEmail;
     }
     
     // Update user name in tracking when it changes
@@ -314,6 +319,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (name) {
                 localStorage.setItem('trackingUserName', name);
                 // Update the current tracking with the new name
+                trackNavigation('Page Load');
+            }
+        });
+    }
+
+    if (userEmailInput) {
+        userEmailInput.addEventListener('change', function() {
+            const email = this.value.trim();
+            if (email) {
+                localStorage.setItem('trackingUserEmail', email);
                 trackNavigation('Page Load');
             }
         });
@@ -655,7 +670,7 @@ function generateSampleData() {
     const pages = ['/index.html', '/about.html', '/services.html', '/contact.html', '/blog.html'];
     const locations = ['Nairobi, Kenya', 'Kampala, Uganda', 'Dar es Salaam, Tanzania', 'Kigali, Rwanda'];
     const devices = ['Desktop', 'Mobile', 'Tablet'];
-    const ipPool = ['102.67.12.10', '41.89.22.7', '196.201.18.3', '154.123.7.88'];
+    const emailPool = ['amina@example.com', 'brian@example.com', 'chris@example.com', 'diana@example.com'];
     
     // Generate visitors
     for (let i = 1; i <= 30; i++) {
@@ -666,7 +681,7 @@ function generateSampleData() {
         const lastVisit = new Date();
         lastVisit.setHours(lastVisit.getHours() - Math.floor(Math.random() * 72));
         
-        const ipAddress = ipPool[Math.floor(Math.random() * ipPool.length)];
+        const emailAddress = emailPool[Math.floor(Math.random() * emailPool.length)];
         visitorsData.push({
             id: visitorId,
             firstVisit: firstVisit.toISOString(),
@@ -674,7 +689,7 @@ function generateSampleData() {
             pageViews: Math.floor(Math.random() * 50) + 1,
             location: locations[Math.floor(Math.random() * locations.length)],
             device: devices[Math.floor(Math.random() * devices.length)],
-            ip: ipAddress
+            email: emailAddress
         });
         
         // Generate activity
@@ -690,7 +705,7 @@ function generateSampleData() {
                 location: visitorsData[i-1].location,
                 device: visitorsData[i-1].device,
                 sessionDuration: Math.floor(Math.random() * 600) + 10,
-                ip: visitorsData[i-1].ip
+                userEmail: visitorsData[i-1].email
             });
         }
     }
@@ -762,6 +777,7 @@ function exportVisitorsCsv() {
     const rows = visitorsData.map(visitor => ({
         id: visitor.id,
         name: visitor.name || visitor.userName || 'Guest',
+        email: visitor.email || 'Unknown',
         firstVisit: visitor.firstVisit || visitor.lastVisit,
         lastVisit: visitor.lastVisit,
         pageViews: visitor.pageViews || visitor.visitCount || 0,
@@ -784,6 +800,7 @@ function exportActivityCsv() {
         time: activity.time,
         visitorId: activity.visitorId || '',
         visitorName: activity.userName || 'Guest',
+        visitorEmail: activity.userEmail || 'Unknown',
         page: activity.page || '',
         location: activity.location || 'Unknown',
         device: activity.device || 'Unknown',
@@ -884,7 +901,7 @@ function updateRecentActivity() {
         const dateString = time.toLocaleDateString();
         const visitorLabel = activity.userName || activity.visitorId || 'Guest';
         const sessionDuration = activity.sessionDuration ? `${activity.sessionDuration}s` : '--';
-        const ipAddress = activity.ip || 'Unknown';
+        const emailAddress = activity.userEmail || 'Unknown';
         
         row.innerHTML = `
             <td>${dateString} ${timeString}</td>
@@ -893,7 +910,7 @@ function updateRecentActivity() {
             <td>${activity.location || 'Unknown'}</td>
             <td>${activity.device || 'Unknown'}</td>
             <td>${sessionDuration}</td>
-            <td>${ipAddress}</td>
+            <td>${emailAddress}</td>
         `;
         recentActivityBody.appendChild(row);
     });
@@ -909,7 +926,7 @@ function updateVisitorsTable() {
     if (visitorsData.length === 0) {
         visitorsTableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                     No visitors yet. Tracking will appear once users start browsing.
                 </td>
             </tr>
@@ -923,11 +940,13 @@ function updateVisitorsTable() {
         const firstVisit = visitor.firstVisit ? new Date(visitor.firstVisit) : new Date(visitor.lastVisit);
         const lastVisit = new Date(visitor.lastVisit);
         const visitorName = visitor.name || visitor.userName || 'Guest';
+        const visitorEmail = visitor.email || 'Unknown';
         const pageViews = visitor.pageViews || visitor.visitCount || 0;
         
         row.innerHTML = `
             <td>${visitor.id}</td>
             <td>${visitorName}</td>
+            <td>${visitorEmail}</td>
             <td>${firstVisit.toLocaleDateString()}</td>
             <td>${lastVisit.toLocaleDateString()}</td>
             <td>${pageViews}</td>
@@ -948,6 +967,7 @@ function showVisitorDetails(visitorId) {
     if (!visitor) return;
 
     const visitorName = visitor.name || visitor.userName || 'Guest';
+    const visitorEmail = visitor.email || 'Unknown';
     const pageViews = visitor.pageViews || visitor.visitCount || 0;
     const firstVisit = visitor.firstVisit ? new Date(visitor.firstVisit) : new Date(visitor.lastVisit);
     const lastVisit = new Date(visitor.lastVisit);
@@ -963,6 +983,7 @@ function showVisitorDetails(visitorId) {
             <div class="col-md-6">
                 <h6 class="text-uppercase text-muted">Visitor Summary</h6>
                 <p class="mb-1"><strong>Name:</strong> ${visitorName}</p>
+                <p class="mb-1"><strong>Email:</strong> ${visitorEmail}</p>
                 <p class="mb-1"><strong>Visitor ID:</strong> ${visitor.id}</p>
                 <p class="mb-1"><strong>Device:</strong> ${visitor.device || 'Unknown'}</p>
                 <p class="mb-1"><strong>Location:</strong> ${visitor.location || 'Unknown'}</p>
@@ -1525,7 +1546,7 @@ function simulateRealTimeUpdates() {
             location: randomVisitor.location,
             device: randomVisitor.device,
             sessionDuration: Math.floor(Math.random() * 300) + 30, // 30-330 seconds
-            ip: randomVisitor.ip || clientIp
+            userEmail: randomVisitor.email || 'Unknown'
         };
         
         // Add to activity data
