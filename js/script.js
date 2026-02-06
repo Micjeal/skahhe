@@ -60,7 +60,7 @@ const pageViewsEl = document.getElementById('pageViews');
 const avgSessionEl = document.getElementById('avgSession');
 const recentActivityBody = document.getElementById('recentActivityBody');
 const visitorsTableBody = document.getElementById('visitorsTableBody');
-const topPagesBody = document.getElementById('topPagesBody');
+const topPagesList = document.getElementById('topPagesList');
 
 // Track navigation item clicks
 function trackNavigation(page) {
@@ -92,17 +92,18 @@ function trackNavigation(page) {
         screenHeight: window.screen.height
     };
     
+    const visitor = updateVisitorList(currentUser, page);
+
     // Add to activity data
     activityData.push({
         type: 'page_visit',
         page: page,
         time: visit.timestamp,
         device: getDeviceType(),
-        userName: currentUser
+        userName: currentUser,
+        visitorId: visitor?.id,
+        location: visitor?.location
     });
-    
-    // Update the visitor list with the current user
-    updateVisitorList(currentUser, page);
     
     // Update the UI
     updateDashboard();
@@ -119,28 +120,35 @@ function updateVisitorList(userName, page) {
     // Check if user already exists in visitorsData
     const existingVisitorIndex = visitorsData.findIndex(v => v.name === userName);
     
+    let visitor = null;
     if (existingVisitorIndex >= 0) {
         // Update existing visitor
-        const visitor = visitorsData[existingVisitorIndex];
+        visitor = visitorsData[existingVisitorIndex];
         visitor.lastVisit = now.toISOString();
-        visitor.visitCount = (visitor.visitCount || 0) + 1;
+        visitor.pageViews = (visitor.pageViews || visitor.visitCount || 0) + 1;
         visitor.lastPage = page;
+        visitor.name = visitor.name || userName;
+        visitor.status = 'online';
     } else {
         // Add new visitor
-        visitorsData.push({
+        visitor = {
             id: 'user-' + Date.now(),
             name: userName,
             device: getDeviceType(),
             location: 'Unknown', // Could be enhanced with geolocation
+            firstVisit: now.toISOString(),
             lastVisit: now.toISOString(),
-            visitCount: 1,
+            pageViews: 1,
             lastPage: page,
             status: 'online'
-        });
+        };
+        visitorsData.push(visitor);
     }
     
     // Update the visitors table
     updateVisitorsTable();
+
+    return visitor;
 }
 
 // API functions for content management
@@ -293,9 +301,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Initial dashboard update
     updateDashboard();
-    
-    // Initialize content management
-    initializeContentManagement();
     
     // Simulate real-time updates
     setInterval(simulateRealTimeUpdates, 10000);
@@ -697,6 +702,94 @@ function initializeEventListeners() {
         saveSettings();
         showAlert('Admin settings saved successfully!', 'success');
     });
+
+    const exportDashboardBtn = document.getElementById('exportDashboardBtn');
+    if (exportDashboardBtn) {
+        exportDashboardBtn.addEventListener('click', () => {
+            exportActivityCsv();
+        });
+    }
+
+    const exportVisitorsBtn = document.getElementById('exportVisitorsBtn');
+    if (exportVisitorsBtn) {
+        exportVisitorsBtn.addEventListener('click', () => {
+            exportVisitorsCsv();
+        });
+    }
+
+    if (visitorsTableBody) {
+        visitorsTableBody.addEventListener('click', (event) => {
+            const button = event.target.closest('.view-visitor-btn');
+            if (!button) return;
+            const visitorId = button.getAttribute('data-visitor-id');
+            if (visitorId) {
+                showVisitorDetails(visitorId);
+            }
+        });
+    }
+}
+
+function exportVisitorsCsv() {
+    if (visitorsData.length === 0) {
+        showAlert('No visitor data available to export.', 'warning');
+        return;
+    }
+
+    const rows = visitorsData.map(visitor => ({
+        id: visitor.id,
+        name: visitor.name || visitor.userName || 'Guest',
+        firstVisit: visitor.firstVisit || visitor.lastVisit,
+        lastVisit: visitor.lastVisit,
+        pageViews: visitor.pageViews || visitor.visitCount || 0,
+        location: visitor.location || 'Unknown',
+        device: visitor.device || 'Unknown',
+        lastPage: visitor.lastPage || ''
+    }));
+
+    downloadCsv('visitors-export.csv', rows);
+    showAlert('Visitor data exported.', 'success');
+}
+
+function exportActivityCsv() {
+    if (activityData.length === 0) {
+        showAlert('No activity data available to export.', 'warning');
+        return;
+    }
+
+    const rows = activityData.map(activity => ({
+        time: activity.time,
+        visitorId: activity.visitorId || '',
+        visitorName: activity.userName || 'Guest',
+        page: activity.page || '',
+        location: activity.location || 'Unknown',
+        device: activity.device || 'Unknown',
+        sessionDuration: activity.sessionDuration || ''
+    }));
+
+    downloadCsv('activity-export.csv', rows);
+    showAlert('Activity data exported.', 'success');
+}
+
+function downloadCsv(filename, rows) {
+    const headers = Object.keys(rows[0] || {});
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => headers.map(header => {
+            const value = row[header] ?? '';
+            const escaped = String(value).replace(/"/g, '""');
+            return `"${escaped}"`;
+        }).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 // Update dashboard with current data
@@ -721,7 +814,7 @@ function updateDashboardStats() {
     activeVisitorsEl.textContent = activeVisitors.toLocaleString();
     
     // Total page views
-    const totalPageViews = visitorsData.reduce((sum, visitor) => sum + visitor.pageViews, 0);
+    const totalPageViews = visitorsData.reduce((sum, visitor) => sum + (visitor.pageViews || visitor.visitCount || 0), 0);
     pageViewsEl.textContent = totalPageViews.toLocaleString();
     
     // Average session duration
@@ -742,6 +835,17 @@ function updateRecentActivity() {
     
     // Clear existing rows
     recentActivityBody.innerHTML = '';
+
+    if (activityData.length === 0) {
+        recentActivityBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                    No recent activity yet.
+                </td>
+            </tr>
+        `;
+        return;
+    }
     
     // Get most recent 10 activities
     const recentActivities = [...activityData]
@@ -754,13 +858,16 @@ function updateRecentActivity() {
         const time = new Date(activity.time);
         const timeString = time.toLocaleTimeString();
         const dateString = time.toLocaleDateString();
+        const visitorLabel = activity.userName || activity.visitorId || 'Guest';
+        const sessionDuration = activity.sessionDuration ? `${activity.sessionDuration}s` : '--';
         
         row.innerHTML = `
             <td>${dateString} ${timeString}</td>
+            <td>${visitorLabel}</td>
             <td>${activity.page}</td>
             <td>${activity.location || 'Unknown'}</td>
             <td>${activity.device || 'Unknown'}</td>
-            <td>${activity.sessionDuration || 0}s</td>
+            <td>${sessionDuration}</td>
         `;
         recentActivityBody.appendChild(row);
     });
@@ -773,22 +880,94 @@ function updateVisitorsTable() {
     // Clear existing rows
     visitorsTableBody.innerHTML = '';
     
+    if (visitorsData.length === 0) {
+        visitorsTableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    No visitors yet. Tracking will appear once users start browsing.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
     // Add rows for each visitor
     visitorsData.forEach(visitor => {
         const row = document.createElement('tr');
-        const firstVisit = new Date(visitor.firstVisit);
+        const firstVisit = visitor.firstVisit ? new Date(visitor.firstVisit) : new Date(visitor.lastVisit);
         const lastVisit = new Date(visitor.lastVisit);
+        const visitorName = visitor.name || visitor.userName || 'Guest';
+        const pageViews = visitor.pageViews || visitor.visitCount || 0;
         
         row.innerHTML = `
             <td>${visitor.id}</td>
+            <td>${visitorName}</td>
             <td>${firstVisit.toLocaleDateString()}</td>
             <td>${lastVisit.toLocaleDateString()}</td>
-            <td>${visitor.pageViews}</td>
+            <td>${pageViews}</td>
             <td>${visitor.location || 'Unknown'}</td>
             <td>${visitor.device || 'Unknown'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary view-visitor-btn" data-visitor-id="${visitor.id}">
+                    View
+                </button>
+            </td>
         `;
         visitorsTableBody.appendChild(row);
     });
+}
+
+function showVisitorDetails(visitorId) {
+    const visitor = visitorsData.find(item => item.id === visitorId);
+    if (!visitor) return;
+
+    const visitorName = visitor.name || visitor.userName || 'Guest';
+    const pageViews = visitor.pageViews || visitor.visitCount || 0;
+    const firstVisit = visitor.firstVisit ? new Date(visitor.firstVisit) : new Date(visitor.lastVisit);
+    const lastVisit = new Date(visitor.lastVisit);
+    const recentVisits = activityData
+        .filter(activity => activity.visitorId === visitorId || activity.userName === visitorName)
+        .slice(0, 5);
+
+    const detailsBody = document.getElementById('visitorDetailsBody');
+    if (!detailsBody) return;
+
+    detailsBody.innerHTML = `
+        <div class="row g-4">
+            <div class="col-md-6">
+                <h6 class="text-uppercase text-muted">Visitor Summary</h6>
+                <p class="mb-1"><strong>Name:</strong> ${visitorName}</p>
+                <p class="mb-1"><strong>Visitor ID:</strong> ${visitor.id}</p>
+                <p class="mb-1"><strong>Device:</strong> ${visitor.device || 'Unknown'}</p>
+                <p class="mb-1"><strong>Location:</strong> ${visitor.location || 'Unknown'}</p>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-uppercase text-muted">Engagement</h6>
+                <p class="mb-1"><strong>First Visit:</strong> ${firstVisit.toLocaleString()}</p>
+                <p class="mb-1"><strong>Last Seen:</strong> ${lastVisit.toLocaleString()}</p>
+                <p class="mb-1"><strong>Page Views:</strong> ${pageViews}</p>
+                <p class="mb-1"><strong>Last Page:</strong> ${visitor.lastPage || 'N/A'}</p>
+            </div>
+        </div>
+        <hr>
+        <h6 class="text-uppercase text-muted mb-3">Recent Activity</h6>
+        ${recentVisits.length === 0 ? '<p class="text-muted mb-0">No recent activity recorded.</p>' : `
+            <ul class="list-group">
+                ${recentVisits.map(activity => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>${activity.page || 'Page view'} <small class="text-muted">(${new Date(activity.time).toLocaleString()})</small></span>
+                        <span class="badge-soft">${activity.sessionDuration ? `${activity.sessionDuration}s` : 'Session'}</span>
+                    </li>
+                `).join('')}
+            </ul>
+        `}
+    `;
+
+    const modalElement = document.getElementById('visitorDetailsModal');
+    if (modalElement) {
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modalInstance.show();
+    }
 }
 
 // Chart instances
@@ -821,7 +1000,7 @@ function updateAnalyticsStats() {
     document.getElementById('analyticsActiveVisitors').textContent = activeVisitors.toLocaleString();
     
     // Total page views
-    const totalPageViews = visitorsData.reduce((sum, visitor) => sum + (visitor.pageViews || 0), 0);
+    const totalPageViews = visitorsData.reduce((sum, visitor) => sum + (visitor.pageViews || visitor.visitCount || 0), 0);
     document.getElementById('analyticsPageViews').textContent = totalPageViews.toLocaleString();
     
     // Average session duration
@@ -1227,22 +1406,6 @@ function updateDeviceChart() {
             },
             layout: {
                 padding: 10
-            },
-            // Add percentage in the center of the doughnut
-            plugins: {
-                datalabels: {
-                    formatter: (value, ctx) => {
-                        const dataArr = ctx.chart.data.datasets[0].data;
-                        const sum = dataArr.reduce((a, b) => a + b, 0);
-                        const percentage = (value * 100 / sum).toFixed(1) + "%";
-                        return percentage;
-                    },
-                    color: '#fff',
-                    font: {
-                        size: 12,
-                        weight: 'bold'
-                    }
-                }
             }
         }
     };
@@ -1279,7 +1442,6 @@ function updateDeviceChart() {
 
 // Update top pages list
 function updateTopPagesList() {
-    const topPagesList = document.getElementById('topPagesList');
     if (!topPagesList) return;
     
     // Count page views (in a real app, this would come from your data)
@@ -1293,6 +1455,15 @@ function updateTopPagesList() {
     const sortedPages = Object.entries(pageViews)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
+
+    if (sortedPages.length === 0) {
+        topPagesList.innerHTML = `
+            <tr>
+                <td colspan="3" class="text-center text-muted py-3">No page data yet.</td>
+            </tr>
+        `;
+        return;
+    }
     
     // Calculate total views for percentage
     const totalViews = sortedPages.reduce((sum, [_, count]) => sum + count, 0);
