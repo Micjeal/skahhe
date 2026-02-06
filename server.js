@@ -7,6 +7,9 @@ const os = require('os');
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.set('trust proxy', true);
 
 // Enable detailed request logging
 app.use((req, res, next) => {
@@ -17,15 +20,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// Path to the website files - point to MUGISHA GEORGE directory
-const WEBSITE_PATH = path.join('C:\\Users\\Admin\\OneDrive\\Desktop\\MUGISHA GEORGE');
+// Path to the website files
+const WEBSITE_PATH = process.env.WEBSITE_PATH || path.join(__dirname);
 console.log('Website path:', WEBSITE_PATH);
 
 // Verify website directory exists
 if (!fs.existsSync(WEBSITE_PATH)) {
     console.error('ERROR: Website directory not found at:', WEBSITE_PATH);
     console.log('Current working directory:', process.cwd());
-    console.log('Directory contents:', fs.readdirSync(path.dirname(WEBSITE_PATH)));
+    const parentDir = path.dirname(WEBSITE_PATH);
+    if (fs.existsSync(parentDir)) {
+        console.log('Directory contents:', fs.readdirSync(parentDir));
+    }
 }
 
 // Configure CORS
@@ -62,13 +68,22 @@ app.get('/api/test', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+    const websiteExists = fs.existsSync(WEBSITE_PATH);
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
         websitePath: WEBSITE_PATH,
-        exists: fs.existsSync(WEBSITE_PATH),
-        files: fs.readdirSync(WEBSITE_PATH)
+        exists: websiteExists,
+        files: websiteExists ? fs.readdirSync(WEBSITE_PATH) : []
     });
+});
+
+app.get('/api/client-ip', (req, res) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = Array.isArray(forwarded)
+        ? forwarded[0]
+        : (forwarded ? forwarded.split(',')[0].trim() : req.ip);
+    res.json({ ip });
 });
 
 // Serve favicon
@@ -679,9 +694,9 @@ app.get('/', (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Dashboard available at http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    console.log(`Dashboard available at http://${HOST}:${PORT}`);
 });
 
 // Save data on exit
